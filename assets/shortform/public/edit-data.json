@@ -1,0 +1,47 @@
+{
+  "_readme": "Per-video data — the ONLY file to write in Phase 2 (besides public/ assets and, rarely, CustomGraphics.tsx). All times are SECONDS on the cut.mp4 output timeline. Never edit src/Main.tsx.",
+  "width": 1080,
+  "height": 1920,
+  "fps": 24,
+  "durationSec": 30,
+  "camera": {
+    "enabled": true,
+    "zooms": [1.14, 1.2, 1.12, 1.22, 1.16, 1.1, 1.18],
+    "pushIn": 0.04,
+    "targetX": 0.5,
+    "targetY": 0.4
+  },
+  "hook": {
+    "enabled": false,
+    "endSec": 4.0,
+    "style": "card",
+    "lines": ["HEADLINE LINHA 1", "HEADLINE LINHA 2"],
+    "logo": null,
+    "sign": null,
+    "_outline_hint": "style:'outline' → texto branco + contorno preto grosso, sem card, sentence-case, mais pra baixo. Escreva lines[] normal (não CAPS), tire logo/sign, e ajuste: fontSizePx(68), strokePx(12), paddingTop(330), lineHeight(1.06)."
+  },
+  "captions": {
+    "enabled": true,
+    "fontSize": 76,
+    "maxWords": 3,
+    "safeWidth": 720,
+    "paddingBottom": 420
+  },
+  "inserts": [],
+  "behind": [],
+  "_counters_hint": "OPCIONAL — contador animado (número sobe até o alvo com pop). Vazio = não aparece. Peça só quando o conteúdo pedir um número em destaque. Formato: {target, start, end, label?, prefix?, suffix?, countFrames?, color?}. Ex: {\"target\":40,\"start\":6.2,\"end\":9.0,\"prefix\":\"+\",\"suffix\":\"%\",\"label\":\"FATURAMENTO\"}",
+  "counters": [],
+  "_wordPops_hint": "OPCIONAL — uma palavra falada estourando gigante na tela (spring + saída). Use numa palavra de impacto (GRÁTIS, AGORA, DOBROU), pousada no timestamp dela. Formato: {text, start, end, color?}. Default cor branca; passe color só se quiser o azul Lytex ou outra.",
+  "wordPops": [],
+  "_typewriters_hint": "OPCIONAL — texto se digitando num cartão inclinado (máquina de escrever). Bom pra listas/roteiro/'3 passos'. Formato: {lines:[...], start, end, cps?, color?}. cps = caracteres por frame (padrão 1.7).",
+  "typewriters": [],
+  "_pills_hint": "OPCIONAL — selo/etiqueta deslizando pra dentro (NOVIDADE, OFERTA). Fica no alto pra não brigar com a legenda embaixo. Formato: {text, start, end, from?, color?}. from = 'left'|'right'|'bottom' (padrão bottom). Cor padrão = azul Lytex.",
+  "pills": [],
+  "_bars_hint": "OPCIONAL — barra horizontal crescendo até uma porcentagem, com leitura de % subindo. Formato: {pct, start, end, label?, color?}. Cor padrão = azul Lytex.",
+  "bars": [],
+  "soundtrack": {
+    "enabled": false,
+    "file": "trilha.mp3",
+    "volume": 0.12
+  }
+}
