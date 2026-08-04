@@ -145,6 +145,19 @@ const STYLE_CATALOG = {
     {id: 'serifada', name: 'Serifada', stat: 'serifada'},
     {id: 'classica', name: 'Clássica', stat: 'classica'},
   ],
+  /* Caption SIZE, as four steps rather than a slider. Every style already has a
+   * natural size it was designed at (52px for "classica", 84px for "serifada"),
+   * so this is a multiplier over that — which is also why it is not a px field:
+   * one absolute number would mean a different thing in each of the six.
+   * Steps, because the gate is a choose-by-looking screen: the demos rebuild at
+   * the picked size, and a continuous slider invites fiddling at a fidelity the
+   * 182px preview card cannot honestly show. Matches captionScale.ts's clamp. */
+  captionScales: [
+    {id: 'pequena', name: 'Pequena', v: 0.85},
+    {id: 'padrao', name: 'Padrão', v: 1},
+    {id: 'grande', name: 'Grande', v: 1.15},
+    {id: 'enorme', name: 'Enorme', v: 1.3},
+  ],
   elements: [
     {
       id: 'tracking',
@@ -213,9 +226,18 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 let capAnims = []; // step(nowSeconds) per visible caption demo
 
+/* The size pick reaches the demos, not just the render — otherwise the gate
+ * would ask the user to choose a size blind, which is the whole thing this
+ * screen exists to avoid. Every builder takes `k` (the multiplier) and mirrors
+ * captionScale.ts: the font AND the style's width budget move together, so the
+ * preview re-breaks its lines exactly where the render will.
+ * SAFE_MAX_FRAC is the same ceiling as the template's — see captionScale.ts. */
+const SAFE_MAX_FRAC = 0.86;
+const capBudget = (budget, k) => Math.min(budget * k, 1080 * SAFE_MAX_FRAC);
+
 // Karaoke: lines of ≤3 words (captions.maxWords), Poppins 900 white, each word
 // rises 34px and fades in over 7 frames; the line is replaced by the next one.
-function buildKaraokeDemo(host) {
+function buildKaraokeDemo(host, k = 1) {
   const s = host.clientWidth / 1080;
   host.innerHTML = '';
   const wrap = el('div', 'cap-demo', host);
@@ -225,15 +247,23 @@ function buildKaraokeDemo(host) {
 
   const STEP = 0.26, ENTER = 7 / FPS_REF, HOLD = 0.6;
   const rise = 34 * s;
+  // the template's default fontSize/safeWidth, scaled the same way it scales them
+  const size = 76 * k;
+  const budget = capBudget(720, k);
   const built = [];
   let t = 0;
   for (const ln of lines) {
     const box = el('div', 'kar-line', wrap);
-    box.style.fontSize = `${76 * s}px`;
+    box.style.fontSize = `${size * s}px`;
+    // Same safe-margin fit as the render (`scale: fit` on the line div), so a
+    // large size shows as the render's shrink-to-fit rather than as text
+    // running off the card — a preview that crops would overstate the size.
+    const fit = Math.min(1, budget / measureType(ln.join(' '), size, 900, "'Poppins',sans-serif", -1));
+    if (fit < 1) box.style.transform = `scale(${fit.toFixed(3)})`;
     const spans = ln.map((w) => {
       const sp = el('span', '', box);
       sp.textContent = w;
-      sp.style.marginRight = `${18 * s}px`;
+      sp.style.marginRight = `${18 * s * k}px`;
       return sp;
     });
     const start = t;
@@ -265,20 +295,30 @@ const STK_LINES = [
   { words: ['que', 'sua', 'legenda'], style: 1 },
   { words: ['irá', 'aparecer'], style: 2 },
 ];
-function buildStackedDemo(host) {
-  const s = host.clientWidth / 1080;
+// fitFont from StackedCaptions.tsx — the budget is divided by the scale there
+// too, which is what makes a bigger pick shrink a long line instead of
+// overflowing it. Same constants, or the preview stops matching the render.
+const stkFit = (text, base, avail, factor = 0.58) => {
+  const n = Math.max(1, text.trim().length);
+  const est = n * base * factor;
+  return est > avail ? Math.floor(avail / (n * factor)) : base;
+};
+
+function buildStackedDemo(host, k = 1) {
+  const s = (host.clientWidth / 1080) * k; // = the template's (width/1080)*FONT_SCALE
   host.innerHTML = '';
   const wrap = el('div', 'cap-demo', host);
   const cue = el('div', 'stk-cue', wrap);
 
   const STEP = 0.2, ENTER = 8 / FPS_REF, HOLD = 0.8, EXIT = 7 / FPS_REF;
   const rise = 46 * s, blurIn = 5 * s, upY = 55 * s, cueBlur = 14 * s;
+  const avail = 1080 - 180; // the template's `width - 180`, in 1080 space
   const shadow = `drop-shadow(0 ${(5 * s).toFixed(2)}px ${(9 * s).toFixed(2)}px rgba(0,0,0,0.5))`;
   const all = [];
   let idx = 0;
   for (const L of STK_LINES) {
     const row = el('div', 'stk-line', cue);
-    let size = 86;
+    let size = stkFit(L.words.join(' '), 86, avail / k);
     if (L.style === 1) size = Math.round(size * 0.72);
     if (L.style === 2) size = Math.round(size * 0.95);
     row.style.fontSize = `${size * s}px`;
@@ -421,8 +461,10 @@ function buildHeadlineDemo(host, styleId) {
 const SCAT = { base: 72, hiScale: 1.62, gap: 12, spread: 0.45, safeW: 820 };
 const scatHash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
-function buildScatterDemo(host) {
+function buildScatterDemo(host, k = 1) {
   const s = host.clientWidth / 1080;
+  const base = SCAT.base * k;
+  const safeW = capBudget(SCAT.safeW, k);
   host.innerHTML = '';
   const wrap = el('div', 'cap-demo', host);
   const cue = el('div', 'scat-cue', wrap);
@@ -451,16 +493,16 @@ function buildScatterDemo(host) {
   const all = [];
   lines.forEach((ln, li) => {
     const row = el('div', 'scat-line', cue);
-    row.style.gap = `${SCAT.gap * s}px`;
+    row.style.gap = `${SCAT.gap * s * k}px`;
     let w = 0;
     for (const it of ln) {
       const sp = el('span', it.hi ? 'hi' : '', row);
       sp.textContent = it.w;
-      sp.style.fontSize = `${(it.hi ? SCAT.base * SCAT.hiScale : SCAT.base) * s}px`;
+      sp.style.fontSize = `${(it.hi ? base * SCAT.hiScale : base) * s}px`;
       all.push({ sp, start: it.i * STEP, hi: it.hi });
-      w += sp.offsetWidth + SCAT.gap * s;
+      w += sp.offsetWidth + SCAT.gap * s * k;
     }
-    const room = Math.max(0, (SCAT.safeW * s - w) / 2) * SCAT.spread;
+    const room = Math.max(0, (safeW * s - w) / 2) * SCAT.spread;
     row.style.translate = `${((scatHash(17 + li * 5 + 3) * 2 - 1) * room).toFixed(1)}px 0px`;
   });
 
@@ -495,8 +537,13 @@ const STATIC_VARIANTS = {
 };
 const ORPHAN_PT = /^(o|a|os|as|e|é|de|do|da|em|no|na|um|uma|que|se|ao|à|por|com)$/i;
 
-function buildStaticDemo(host, id) {
-  const V = STATIC_VARIANTS[id];
+function buildStaticDemo(host, id, k = 1) {
+  const V0 = STATIC_VARIANTS[id];
+  // mirrors scaleVariant() in SimpleCaptions.tsx — the whole variant scales, so
+  // the cue grouping below re-breaks exactly where the render will
+  const V = k === 1
+    ? V0
+    : {...V0, size: V0.size * k, tracking: V0.tracking * k, maxW: capBudget(V0.maxW, k)};
   const s = host.clientWidth / 1080;
   host.innerHTML = '';
   const wrap = el('div', 'cap-demo', host);
@@ -592,6 +639,7 @@ function defaultStyle() {
     edit: STYLE_CATALOG.edits[0].id,
     headline: STYLE_CATALOG.headlines[0].id,
     captions: STYLE_CATALOG.captions[0].id,
+    captionScale: 1, // "Padrão" — the size each style was designed at
     accent: ACCENT_DEFAULT,
     elements,
     note: '',
@@ -1036,6 +1084,10 @@ function closeNoteEditor() {
 
 // ---------- style setup ----------
 const styleName = (group, id) => (STYLE_CATALOG[group].find((o) => o.id === id) || {}).name || '—';
+// size is picked by name but travels as the multiplier — the JSON field the
+// template reads is a number, so the name is only ever a label for the human
+const capScaleName = (v) =>
+  (STYLE_CATALOG.captionScales.find((o) => Math.abs(o.v - (v ?? 1)) < 1e-6) || {}).name || `${v}×`;
 // the accent is a free colour, not a named entry in a list — it names itself
 const accentName = (hex) => String(hex || ACCENT_DEFAULT).toUpperCase();
 const normHex = (v) => {
@@ -1131,7 +1183,7 @@ function updateSummary() {
   const accentBit = accentUsed() ? ` · destaque ${accentName(S.style.accent)}` : '';
   $('setupSummary').textContent =
     `${styleName('edits', S.style.edit)} · headline ${styleName('headlines', S.style.headline)}` +
-    ` · legenda ${styleName('captions', S.style.captions)}${accentBit} · ` +
+    ` · legenda ${styleName('captions', S.style.captions)} (${capScaleName(S.style.captionScale)})${accentBit} · ` +
     (on.length ? on.map((e) => e.name).join(', ') : 'sem elementos extras');
 }
 
@@ -1166,6 +1218,9 @@ function renderSetup() {
   capAnims = [];
   const radios = (host, group, chosen) => {
     const opts = STYLE_CATALOG[group];
+    // the caption demos render at the picked SIZE — the size chips below are
+    // useless if the cards keep showing the default
+    const k = group === 'captions' ? (S.style.captionScale ?? 1) : 1;
     host.innerHTML = '';
     for (const o of opts) {
       const card = el('div', `opt${o.id === chosen ? ' on' : ''}`, host);
@@ -1175,10 +1230,10 @@ function renderSetup() {
       // box's height, and with four groups on one screen that height is scarce
       const kind = o.mock ? 'frame' : o.hl ? 'cap hlbox' : 'cap';
       const prev = el('div', `opt-preview ${kind}`, card);
-      if (o.demo) capAnims.push(CAP_BUILDERS[o.demo](prev));
+      if (o.demo) capAnims.push(CAP_BUILDERS[o.demo](prev, k));
       else if (o.hl) buildHeadlineDemo(prev, o.hl);
       else if (o.stat) {
-        const step = buildStaticDemo(prev, o.stat);
+        const step = buildStaticDemo(prev, o.stat, k);
         if (step) capAnims.push(step);
       }
       else prev.innerHTML = o.mock || '';
@@ -1197,6 +1252,19 @@ function renderSetup() {
   radios($('optEdit'), 'edits', S.style.edit);
   radios($('optHeadline'), 'headlines', S.style.headline);
   radios($('optCaptions'), 'captions', S.style.captions);
+
+  // Size sits INSIDE the caption group, not in its own: it is a property of the
+  // caption the user just picked, and as a separate group it read as a fifth
+  // decision unrelated to the cards above it.
+  const sizeHost = $('optCapScale');
+  sizeHost.innerHTML = '';
+  for (const o of STYLE_CATALOG.captionScales) {
+    const on = Math.abs((S.style.captionScale ?? 1) - o.v) < 1e-6;
+    const chip = el('div', `size-chip${on ? ' on' : ''}`, sizeHost);
+    chip.dataset.scale = String(o.v);
+    chip.textContent = o.name;
+  }
+
   renderAccents();
 
   const host = $('optElements');
@@ -1224,6 +1292,12 @@ $('styleSetup').addEventListener('click', (e) => {
     renderSetup();
     return;
   }
+  const chip = e.target.closest('.size-chip');
+  if (chip) {
+    S.style.captionScale = Number(chip.dataset.scale);
+    renderSetup(); // rebuilds the caption demos at the new size
+    return;
+  }
   const chk = e.target.closest('.chk');
   if (chk) {
     S.style.elements[chk.dataset.id] = !S.style.elements[chk.dataset.id];
@@ -1245,6 +1319,9 @@ $('setupGo').addEventListener('click', async () => {
     headlineName: styleName('headlines', S.style.headline),
     captions: S.style.captions,
     captionsName: styleName('captions', S.style.captions),
+    // goes straight into edit-data.json as captions.fontScale
+    captionScale: S.style.captionScale ?? 1,
+    captionScaleName: capScaleName(S.style.captionScale),
     accent: S.style.accent,
     accentName: accentName(S.style.accent),
     // whether the picked styles actually paint it — so the skill does not go

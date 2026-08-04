@@ -59,10 +59,18 @@ Then copy `cut.mp4` into `public/` and generate the data files below.
     // optional: ranges where the caption sits elsewhere (split screen parks it
     // on the seam). Resolved per FRAME, so a line crossing the boundary moves.
     "windows": [{"start": 11.64, "end": 14.73, "paddingBottom": 1074}],
-    "style": "karaoke"               // "karaoke" (default) | "stacked" (see below)
+    "style": "karaoke",              // "karaoke" (default) | "stacked" (see below)
+    // SIZE — one multiplier over whichever style is picked. 1 = the size that
+    // style was designed at, so it means the same thing in all six. The Estilo
+    // tab writes it: Pequena 0.85 · Padrão 1 · Grande 1.15 · Enorme 1.3.
+    // Clamped to 0.7–1.5 in captionScale.ts, which also scales the style's width
+    // budget (safeWidth/maxW) — the font alone would just re-break the lines,
+    // and karaoke's fit would cancel it outright. Capped at 86% of frame width
+    // so a big pick never slides the block under the platform action rail.
+    "fontScale": 1,
     // when "stacked": run caption_style.py → public/caption-cues.json, then the
     // stacked style renders (multi-font stack + pencil outline + click/scratch).
-    // optional stacked overrides: "stackedOffsetY": 0.156, "fontScale": 1,
+    // optional stacked overrides: "stackedOffsetY": 0.156,
     // "sfx": {"enabled": true, "clickVolume": 0.45, "scratchVolume": 0.16}
   },
   "inserts": [                       // rounded-card images, upper zone

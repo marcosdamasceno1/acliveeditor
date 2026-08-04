@@ -218,6 +218,34 @@ backwards on every long word.
 - All three sit at `bottom: 430`, the same band as the others. Lower than that
   and a 9:16 caption lands under the platform's own UI.
 
+### Caption SIZE — `captions.fontScale`
+
+One multiplier over whichever of the six is picked. **The user chooses it on the
+Estilo tab** (Pequena 0.85 · Padrão 1 · Grande 1.15 · Enorme 1.3) and
+`watch_edits.py` reports it — write it into `captions.fontScale` and do not ask
+again. `1` means the size the style was designed at, which is why this is a
+multiplier and not a px: the six have six natural sizes (52 for `classica`, 84
+for `serifada`), so one absolute number would mean something different in each.
+
+`src/captionScale.ts` owns it, and two things there are the reason it works:
+
+- **The width budget scales with the font.** Every style groups words by measured
+  width against a budget (`safeWidth`, `maxW`, `scatterSafeWidth`). Scale the
+  font alone and a bigger cue simply re-breaks against the old budget — the
+  wrapping changes instead of the size. Karaoke is worse than that: its fit is
+  `min(1, safeWidth/width)`, so on any line already at the budget the shrink
+  exactly cancels the increase and nothing moves at all.
+- **The budget is capped at 86% of frame width** (`SAFE_MAX_FRAC`), so a large
+  pick grows the glyphs and then stops widening the block. Past that the caption
+  slides under the platform's like/comment rail — the one place it is watched.
+
+Clamped to 0.7–1.5. The tab's four steps sit inside that; a hand-written JSON
+value outside it degrades to the nearest end rather than rendering a bad pass.
+
+`fontScale` is not a replacement for the per-style tuning that still exists
+(`fontSize`, `scatterFontSize`, `safeWidth`): those set what a project's default
+size IS, and `fontScale` is the user's pick on top.
+
 ### karaoke (default), STACKED or SCATTER
 
 Short-form ships two caption styles. **The user already picked one on the Estilo
@@ -259,7 +287,7 @@ Then set `captions.style:"stacked"` in edit-data.json (keep the other caption
 fields — they stay valid). Defaults match the user-approved look: the stack sits
 ~15.6% of the height below center and SFX play from `public/sfx/caption-click.mp3`
 + `caption-scratch.mp3` (both already in the template). Optional overrides inside
-`captions`: `stackedOffsetY` (0–1 of height), `fontScale`, and
+`captions`: `stackedOffsetY` (0–1 of height) and
 `sfx:{enabled,clickVolume(0.45),scratchVolume(0.16)}`. The director groups words
 into short cues, gives the orange serif accent to the content word (never a
 connective), keeps 1-letter/short connectors from standing alone, and flags

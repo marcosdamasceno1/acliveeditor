@@ -29,6 +29,11 @@ description: Aclive Editor — edit any video by conversation, in phases. Two tr
 9. **All session outputs in `<videos_dir>/edit/`** — never inside the repo.
 10. **PHASE 2 is Remotion-only** — no ffmpeg/PIL burned text or overlays.
 11. **PHASE 2 is data-driven.** Scaffold by copying the track template; describe the video in `public/edit-data.json`. **Never read or edit the template TSX** (`src/Main.tsx` etc.) — the only editable code file is `src/CustomGraphics.tsx`, only for bespoke graphics.
+    *This governs an EDIT SESSION.* Extending the skill itself — a new caption
+    style, a new track template, a new control on the Estilo tab — necessarily
+    edits the template and the `STYLE_CATALOG`, and is a change to `assets/`
+    that lands for every project. The two are different jobs: never do the
+    second while editing someone's video.
 12. **Verify numerically first.** Run `verify_cut.py` on every rendered cut; open images only for flagged junctions. Batch any multi-frame look into one `contact_sheet.py` / `grade.py --candidates` montage.
 13. **Never Read machine data into context**: `transcripts/*.json` (raw), `captions.json`, `track.json`, `segments.json`, matte/track binaries. Read `takes_packed.md` and helper stdout instead.
 
@@ -194,7 +199,12 @@ and the UI opens its own tab, sitting between FASE 1 and FASE 2:
 - **Estilo de headline** — `outline`, `card`, `realce`, `misto`. Always two
   lines, size fitted to the text (see the track reference).
 - **Estilo de legenda** — three animated (`karaoke`, `stacked`/"Empilhado",
-  `scatter`/"Disperso") and three static (`simples`, `serifada`, `classica`).
+  `scatter`/"Disperso") and three static (`simples`, `serifada`, `classica`),
+  plus **o tamanho** as four chips under the cards (Pequena 0.85 · Padrão 1 ·
+  Grande 1.15 · Enorme 1.3). The pick arrives as `captionScale` and goes into
+  `edit-data.json` as `captions.fontScale` — one multiplier over whichever style
+  was chosen, since the six have six natural sizes. The cards re-render at the
+  picked size, so this is chosen by looking like everything else on the tab.
 - **Elementos da edição** — checkboxes: `tracking` (movimento de tracking),
   `zoomAuto` (automação de zoom in), `zoomCuts` (zoom in/out nos cortes),
   `flashCut` (flash na transição), `musicAI` (trilha sonora com IA), plus a

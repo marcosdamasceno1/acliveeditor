@@ -77,6 +77,17 @@ def style_digest(p: Path) -> str:
         f'  · headline: {d.get("headlineName") or d.get("headline")}',
         f'  · legenda: {d.get("captionsName") or d.get("captions")}',
     ]
+    # Size is a pick like any other — reported always, including "Padrão", so the
+    # absence of a line never has to be read as "they left it alone" vs "the UI
+    # is older than this field". It maps to captions.fontScale in edit-data.json.
+    scale = d.get("captionScale")
+    if scale is not None:
+        name = d.get("captionScaleName") or ""
+        out.append(
+            f'  · tamanho da legenda: {name} ({scale}×) → "fontScale": {scale} em captions'
+            if name
+            else f'  · tamanho da legenda: fontScale {scale}'
+        )
     # Only worth reporting when the chosen styles actually paint an accent —
     # naming a colour that nothing uses reads as an instruction to go find a
     # place for it.

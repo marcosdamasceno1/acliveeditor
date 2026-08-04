@@ -22,6 +22,7 @@ import {loadFont as loadInter} from '@remotion/google-fonts/Inter';
 import {measureText} from '@remotion/layout-utils';
 import captions from '../public/captions.json';
 import editData from '../public/edit-data.json';
+import {CAPTION_SCALE, scaledBudget} from './captionScale';
 
 const POPPINS = loadPoppins('normal', {weights: ['600']}).fontFamily;
 const BASKERVILLE = loadBaskerville('normal', {weights: ['700']}).fontFamily;
@@ -82,6 +83,21 @@ export const SIMPLE_VARIANTS: Record<string, Variant> = {
     maxW: 840,
   },
 };
+
+// The WHOLE variant scales, not just `size`. widthOf, buildCues and splitTwo all
+// read their numbers off this object, so scaling it is what keeps the line
+// grouping honest at any size — scale the font alone and a bigger cue simply
+// re-breaks against the old budget, which changes the wrapping instead of the
+// size. `bottom` deliberately stays put: this control is size, not position.
+function scaleVariant(V: Variant, frameWidth: number): Variant {
+  if (CAPTION_SCALE === 1) return V;
+  return {
+    ...V,
+    size: V.size * CAPTION_SCALE,
+    tracking: V.tracking * CAPTION_SCALE,
+    maxW: scaledBudget(V.maxW, frameWidth),
+  };
+}
 
 const clean = (t: string) => t.replace(/[.,!?…]+$/, '');
 const isBreak = (t: string) => /[.,!?…]$/.test(t);
@@ -145,8 +161,8 @@ function splitTwo(words: Word[], V: Variant): Word[][] {
 
 export const SimpleCaptions: React.FC<{variant: string}> = ({variant}) => {
   const frame = useCurrentFrame();
-  const {fps, durationInFrames} = useVideoConfig();
-  const V = SIMPLE_VARIANTS[variant] ?? SIMPLE_VARIANTS.simples;
+  const {fps, durationInFrames, width: frameW} = useVideoConfig();
+  const V = scaleVariant(SIMPLE_VARIANTS[variant] ?? SIMPLE_VARIANTS.simples, frameW);
   const cues = buildCues(captions as Word[], V);
 
   let idx = -1;

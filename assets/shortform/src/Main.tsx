@@ -34,6 +34,7 @@ import {CustomGraphics} from './CustomGraphics';
 import {StackedCaptions} from './StackedCaptions';
 import {ScatterCaptions} from './ScatterCaptions';
 import {SimpleCaptions, SIMPLE_VARIANTS} from './SimpleCaptions';
+import {CAPTION_SCALE, scaledBudget} from './captionScale';
 
 const {fontFamily} = loadFont('normal', {weights: ['400', '600', '900']});
 
@@ -88,6 +89,10 @@ export type EditData = {
     scatterFontSize?: number;  // scatter: ordinary word size (default 74)
     scatterSafeWidth?: number; // scatter: layout width budget (default 940)
     stackedOffsetY?: number;
+    // ONE multiplier over whichever style is picked — 1 = the size the style was
+    // designed at. Applies to all six (the Estilo tab exposes it as Pequena /
+    // Padrão / Grande / Enorme). Clamped to 0.7–1.5 in captionScale.ts, which
+    // also scales each style's width budget so the lines do not just re-break.
     fontScale?: number;
     sfx?: {enabled?: boolean; clickVolume?: number; scratchVolume?: number};
   };
@@ -301,8 +306,13 @@ const CaptionShell: React.FC<{fromFrame: number; children: React.ReactNode}> = (
 };
 
 const Karaoke: React.FC = () => {
-  const {fps, durationInFrames} = useVideoConfig();
+  const {fps, durationInFrames, width: frameW} = useVideoConfig();
   const C = D.captions;
+  // Both, always: the fit below divides by the budget, so scaling the font
+  // against a fixed safeWidth would cancel itself on every line already at the
+  // budget — the long lines would stay put while the short ones grew.
+  const size = C.fontSize * CAPTION_SCALE;
+  const budget = scaledBudget(C.safeWidth, frameW);
   return (
     <>
       {LINES.map((line, i) => {
@@ -314,12 +324,12 @@ const Karaoke: React.FC = () => {
         const {width} = measureText({
           text: lineText,
           fontFamily,
-          fontSize: C.fontSize,
+          fontSize: size,
           fontWeight: 900,
           letterSpacing: '-1px',
         });
         // safe-margin fit: scale down so the line clears the platform action rail
-        const fit = Math.min(1, C.safeWidth / width);
+        const fit = Math.min(1, budget / width);
         return (
           <Sequence key={i} from={from} durationInFrames={duration} layout="none">
             <CaptionShell fromFrame={from}>
@@ -327,7 +337,7 @@ const Karaoke: React.FC = () => {
                 style={{
                   fontFamily,
                   fontWeight: 900,
-                  fontSize: C.fontSize,
+                  fontSize: size,
                   color: 'white',
                   lineHeight: 1,
                   letterSpacing: -1,

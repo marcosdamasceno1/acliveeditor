@@ -74,9 +74,15 @@
         <div id="optHeadline" class="opt-grid"></div>
       </div>
 
+      <!-- Size lives in this group, not its own: it is a property of the caption
+           style chosen right above, and the cards re-render at the picked size. -->
       <div class="setup-group">
-        <div class="group-head"><span class="group-title">Estilo de legenda</span></div>
+        <div class="group-head">
+          <span class="group-title">Estilo de legenda</span>
+          <span class="group-note">o tamanho se aplica ao estilo escolhido</span>
+        </div>
         <div id="optCaptions" class="opt-grid"></div>
+        <div id="optCapScale" class="size-chips"></div>
       </div>
 
       <div class="setup-group">

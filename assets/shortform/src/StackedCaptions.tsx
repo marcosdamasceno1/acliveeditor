@@ -29,6 +29,7 @@ import {loadFont as loadPlayfair} from '@remotion/google-fonts/PlayfairDisplay';
 import cues from '../public/caption-cues.json';
 import editData from '../public/edit-data.json';
 import {PencilOutline} from './PencilOutline';
+import {CAPTION_SCALE} from './captionScale';
 
 const poppins = loadPoppins('normal', {weights: ['400', '700', '800', '900']});
 loadPoppins('italic', {weights: ['700', '900']});
@@ -69,7 +70,11 @@ type SfxCfg = {enabled?: boolean; clickVolume?: number; scratchVolume?: number};
 type CapCfg = {stackedOffsetY?: number; fontScale?: number; sfx?: SfxCfg};
 const CAP = ((editData as {captions?: CapCfg}).captions ?? {}) as CapCfg;
 const OFFSET_Y = CAP.stackedOffsetY ?? 0.156; // fraction of height, below center
-const FONT_SCALE = CAP.fontScale ?? 1;
+// This style had fontScale first; it now comes from the shared module so the
+// Estilo tab's size pick means the same thing in all six styles (and gets the
+// same 0.7–1.5 clamp). The maths below is unchanged — `avail / scale` already
+// scaled the budget with the font, which is the pattern the others now follow.
+const FONT_SCALE = CAPTION_SCALE;
 const SFX = CAP.sfx ?? {};
 const SFX_ON = SFX.enabled !== false;
 const CLICK_VOL = SFX.clickVolume ?? 0.45;
