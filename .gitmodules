@@ -1,0 +1,6 @@
+[submodule "vendor/hyperframes"]
+	path = vendor/hyperframes
+	url = https://github.com/heygen-com/hyperframes
+[submodule "vendor/video-use"]
+	path = vendor/video-use
+	url = https://github.com/browser-use/video-use

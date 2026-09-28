@@ -42,11 +42,17 @@ And one thing must be true about the current agent:
 ### 1. Clone to a stable path
 
 ```bash
-test -d ~/Developer/aclive-editor || git clone <YOUR-EDVID-REPO-URL> ~/Developer/aclive-editor
+test -d ~/Developer/aclive-editor || git clone --recurse-submodules https://github.com/marcosdamasceno1/acliveeditor ~/Developer/aclive-editor
 cd ~/Developer/aclive-editor
+git submodule update --init --recursive
 ```
 
-If the repo is already there, `git pull --ff-only` and continue.
+If the repo is already there, `git pull --ff-only && git submodule update --init --recursive` and continue.
+
+The repo bundles two companion skill projects as git submodules under `vendor/` (see step 6b):
+
+- `vendor/hyperframes` — [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes) (Apache-2.0), a Claude Code plugin with the `hyperframes:*` skills.
+- `vendor/video-use` — [browser-use/video-use](https://github.com/browser-use/video-use) (MIT), the `video-use` skill.
 
 ### 2. Install Python deps
 
@@ -151,6 +157,22 @@ ln -sfn ~/Developer/remotion-skills/skills/remotion ~/.claude/skills/remotion
 
 None of the optional keys (`ELEVENLABS_API_KEY`, `PEXELS_API_KEY`, `TREBLO_API_KEY`, `GOOGLE_API_KEY`/`GOOGLE_CSE_ID` — see requirement 6) are needed at install time. Ask for each **lazily**, the first time its feature is used, and append it to `.env` next to `GROQ_API_KEY`. `ELEVENLABS_API_KEY` is the Phase-1 exception to "Phase 2/3": ask for it the first time a **>5 min source** shows up (long lessons / YouTube), since that's when the auto backend wants Scribe. Image search also works with **zero keys** via Wikimedia Commons, so Phase 2 images are never hard-blocked.
 
+### 6b. Companion skills (hyperframes + video-use)
+
+Both live in `vendor/` as submodules pinned to a known-good commit. Register them with the agent:
+
+```bash
+# video-use: plain skill — symlink the whole directory, then install its Python deps
+ln -sfn ~/Developer/aclive-editor/vendor/video-use ~/.claude/skills/video-use
+(cd ~/Developer/aclive-editor/vendor/video-use && uv sync)
+
+# hyperframes: Claude Code plugin — add the bundled copy as a local marketplace
+claude plugin marketplace add ~/Developer/aclive-editor/vendor/hyperframes
+claude plugin install hyperframes@hyperframes
+```
+
+Skip either one if it is already installed (`ls ~/.claude/skills`, `claude plugin list`). Follow each project's own `install.md` / README for extra setup (API keys, Node deps) the first time you use it.
+
 ### 7. Verify end-to-end
 
 Run one real thing. Prefer the lightest verification that still proves the pipeline is wired up. Use `uv run` (or activate the venv) so the helper sees its deps — after `uv sync` a bare `python` won't find `opencv`/`numpy`:
@@ -179,6 +201,7 @@ Tell the user, in one short message:
 
 - `cd ~/Developer/aclive-editor && git pull --ff-only` pulls the latest code. The symlink auto-picks it up on the next run.
 - If `pyproject.toml` changed deps, re-run `uv sync` / `pip install -e .` after pulling.
+- `git submodule update --init --recursive` syncs `vendor/` to the pinned commits. To bump them to upstream: `git submodule update --remote vendor/hyperframes vendor/video-use`, test, then commit the new pointers.
 
 ## Cold-start reminders
 
