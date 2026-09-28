@@ -190,6 +190,18 @@ const STYLE_CATALOG = {
       icon: '<svg viewBox="0 0 16 16"><path d="M12.6 1.6L6.9 3a.7.7 0 00-.55.68v5.6a2 2 0 101.35 1.9V5.9l4.4-1.05v2.9a2 2 0 101.35 1.9V2.3a.7.7 0 00-.85-.7z"/><path d="M2.4 2.2l.6 1.5 1.5.6-1.5.6-.6 1.5-.6-1.5-1.5-.6 1.5-.6z"/></svg>',
     },
   ],
+  // Single opt-in switch: whether Phase 2 hands motion graphics to the
+  // Hyperframes skill (vendor/hyperframes) instead of the plain Remotion
+  // template. Off by default — Hard Rule 10 (PHASE 2 is Remotion-only) still
+  // holds unless the user explicitly turns this on.
+  motion: [
+    {
+      id: 'hyperframes',
+      name: 'Motion com Hyperframes',
+      def: false,
+      icon: '<svg viewBox="0 0 16 16"><path d="M2 8a6 6 0 1112 0A6 6 0 012 8z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.2 5.4v5.2L10.6 8z"/></svg>',
+    },
+  ],
 };
 
 /* ---------- caption previews: the template's animation, not an impression ----
@@ -635,6 +647,8 @@ let S = {
 function defaultStyle() {
   const elements = {};
   for (const e of STYLE_CATALOG.elements) elements[e.id] = !!e.def;
+  const motion = {};
+  for (const e of STYLE_CATALOG.motion) motion[e.id] = !!e.def;
   return {
     edit: STYLE_CATALOG.edits[0].id,
     headline: STYLE_CATALOG.headlines[0].id,
@@ -642,6 +656,7 @@ function defaultStyle() {
     captionScale: 1, // "Padrão" — the size each style was designed at
     accent: ACCENT_DEFAULT,
     elements,
+    motion,
     note: '',
   };
 }
@@ -1180,11 +1195,13 @@ function updateAccentNote() {
  * colour while the previews already showed the new one. */
 function updateSummary() {
   const on = STYLE_CATALOG.elements.filter((e) => S.style.elements[e.id]);
+  const motionOn = STYLE_CATALOG.motion.filter((e) => S.style.motion[e.id]);
   const accentBit = accentUsed() ? ` · destaque ${accentName(S.style.accent)}` : '';
+  const motionBit = motionOn.length ? ` · ${motionOn.map((e) => e.name).join(', ')}` : '';
   $('setupSummary').textContent =
     `${styleName('edits', S.style.edit)} · headline ${styleName('headlines', S.style.headline)}` +
     ` · legenda ${styleName('captions', S.style.captions)} (${capScaleName(S.style.captionScale)})${accentBit} · ` +
-    (on.length ? on.map((e) => e.name).join(', ') : 'sem elementos extras');
+    (on.length ? on.map((e) => e.name).join(', ') : 'sem elementos extras') + motionBit;
 }
 
 // The Estilo tab. It sits BETWEEN the phases and is always reachable once the
@@ -1278,6 +1295,17 @@ function renderSetup() {
     el('div', 'chk-name', row).textContent = e.name;
   }
 
+  const motionHost = $('optMotion');
+  motionHost.innerHTML = '';
+  for (const e of STYLE_CATALOG.motion) {
+    const on = !!S.style.motion[e.id];
+    const row = el('div', `chk${on ? ' on' : ''}`, motionHost);
+    row.dataset.id = e.id;
+    el('div', 'chk-box', row);
+    el('div', 'chk-ico', row).innerHTML = e.icon || '';
+    el('div', 'chk-name', row).textContent = e.name;
+  }
+
   updateSummary();
 }
 
@@ -1296,6 +1324,12 @@ $('styleSetup').addEventListener('click', (e) => {
   if (chip) {
     S.style.captionScale = Number(chip.dataset.scale);
     renderSetup(); // rebuilds the caption demos at the new size
+    return;
+  }
+  const motionChk = e.target.closest('#optMotion .chk');
+  if (motionChk) {
+    S.style.motion[motionChk.dataset.id] = !S.style.motion[motionChk.dataset.id];
+    renderSetup();
     return;
   }
   const chk = e.target.closest('.chk');
@@ -1331,6 +1365,10 @@ $('setupGo').addEventListener('click', async () => {
     elementNames: STYLE_CATALOG.elements
       .filter((e) => S.style.elements[e.id])
       .map((e) => e.name),
+    // whether the user opted into Hyperframes-built motion graphics for
+    // Phase 2 — the skill reads this to decide which engine builds the
+    // animated overlays (see vendor/hyperframes)
+    motion: !!S.style.motion.hyperframes,
     note: S.style.note,
   };
   const res = await fetch('/api/save', {

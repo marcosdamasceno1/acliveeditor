@@ -27,7 +27,16 @@ description: Aclive Editor — edit any video by conversation, in phases. Two tr
 7. **Color grade per-segment during extraction**, never post-concat.
 8. **Strategy confirmation before execution.**
 9. **All session outputs in `<videos_dir>/edit/`** — never inside the repo.
-10. **PHASE 2 is Remotion-only** — no ffmpeg/PIL burned text or overlays.
+9b. **Deliver at maximum quality, always.** Every render the user actually
+    receives (`cut.mp4` once approved, `final.mp4`) uses the highest-quality
+    tier of the ladder in `render.py` (`slow` preset, CRF 16) and Remotion's
+    lossless `png` intermediate frames — never the `--preview`/`--draft`
+    tiers, and never a setting picked for speed at the cost of visible
+    compression artifacts. Re-encodes are minimized (stream-copy wherever a
+    pass doesn't need to touch video — loudnorm, voice master, concat), but
+    where a re-encode is unavoidable it stays at the same delivered-quality
+    tier, never a lower one.
+10. **PHASE 2 is Remotion-only** — no ffmpeg/PIL burned text or overlays. Exception: when the user opted into **Motion (Hyperframes)** on the style gate, the motion-graphics segments described below are built with the `hyperframes` skill instead — everything else (cut, captions, headline) still comes from the Remotion template.
 11. **PHASE 2 is data-driven.** Scaffold by copying the track template; describe the video in `public/edit-data.json`. **Never read or edit the template TSX** (`src/Main.tsx` etc.) — the only editable code file is `src/CustomGraphics.tsx`, only for bespoke graphics.
     *This governs an EDIT SESSION.* Extending the skill itself — a new caption
     style, a new track template, a new control on the Estilo tab — necessarily
@@ -78,6 +87,7 @@ First-time install lives in `install.md`. On cold start just verify:
 - `ffmpeg` + `ffprobe` on PATH; Python deps (`uv sync`); Node 18+ for Phase 2. `yt-dlp` only for URL sources (`ingest_url.py`) — install lazily (`brew install yt-dlp`) the first time a link shows up.
 - The `remotion-best-practices` skill for Phase-2 domain knowledge (install from https://github.com/remotion-dev/skills if missing).
 - Lazy keys, ask on first use, write to `.env` (never to `<videos_dir>`): `PEXELS_API_KEY` (images), `GOOGLE_API_KEY`+`GOOGLE_CSE_ID` (brand/people images fallback), `TREBLO_API_KEY` (AI music).
+- **`video-use`** (`vendor/video-use`, a git submodule — `git submodule update --init vendor/video-use` if the checkout is empty) is **always active**, not opt-in: its quality-assurance pass (loudness/critic sub-agent, step 7b above) runs on every edit session. Its own `helpers/` (render/grade/transcribe) are a separate, standalone pipeline — do not run them here; this skill only draws on its Self-eval section.
 
 Helpers live in `helpers/`, resolved relative to this SKILL.md (symlinked at `~/.claude/skills/aclive-editor/`).
 
@@ -209,6 +219,36 @@ and the UI opens its own tab, sitting between FASE 1 and FASE 2:
   `zoomAuto` (automação de zoom in), `zoomCuts` (zoom in/out nos cortes),
   `flashCut` (flash na transição), `musicAI` (trilha sonora com IA), plus a
   free-text observation field.
+- **Motion** — a single opt-in switch, **off by default**: "Motion com
+  Hyperframes". It ships as the boolean `motion` in `preview_style.json`
+  (`true` only when the user turned it on). Whether to offer it at all is
+  content-driven — propose it when the material calls for a designed motion
+  beat (a kinetic stat, a logo sting, a stylized lower-third) beyond what the
+  built-in `CustomGraphics.tsx` motions (counters, `wordPops`, `typewriters`,
+  `pills`, `bars`) already cover.
+
+### Motion (Hyperframes)
+
+The `hyperframes` skill (vendor/hyperframes, a git submodule — `git submodule
+update --init vendor/hyperframes` if the checkout is empty) is an HTML → MP4
+renderer built for agentic motion graphics: kinetic type, stat/chart hits,
+logo stings, lower-thirds — the same shapes the domain skill router
+(`/hyperframes`) maps to `/motion-graphics`. When `preview_style.json` (or the
+persisted `state.json.style`) has `motion: true`:
+
+1. Read `/hyperframes` first (the router) to confirm the brief and land on
+   `/motion-graphics` or the closest matching creation workflow.
+2. Build the motion clip(s) as their own short HyperFrames composition(s),
+   sourcing footage/stills from the same `<edit>/` assets already gathered for
+   Phase 2 (grade, B-roll, brand images) — never re-derive them.
+3. Render each to MP4 (or a transparent overlay where the look calls for it)
+   into `<edit>/remotion/public/` alongside the other Phase-2 media, and
+   composite it into the cut the same way an inserted clip/overlay is placed
+   today (`edit-data.json`, timed off the transcript like every other motion
+   element in this skill) — HyperFrames renders the motion piece, Remotion
+   still owns the final composite and the phase gate.
+4. When `motion` is `false` or absent, skip this entirely — Phase 2 stays
+   the plain Remotion template, per Hard Rule 10.
 
 Saving writes `<edit>/preview_style.json` (its OWN file — a style pick and a
 timeline correction are different screens at different moments, and one shared
@@ -269,6 +309,7 @@ Goal: best take of every beat, cut on silence, graded image, clean `cut.mp4` for
 5. **Propose the cut strategy** (4–8 sentences: shape, takes, cut direction, grade direction, length estimate). **Wait for confirmation.**
 6. **Execute.** Produce `edl.json` (schema below; editor sub-agent brief for multi-take). Set cut edges from `speech_regions.py`, not raw Whisper times. Render: `render.py edl.json -o cut.mp4 --no-subtitles` (+`--voice-master` if wanted; longform: `--keep-resolution`). **The J-cut runs by default** — see below; you do not ask for it and you do not configure it per project.
 7. **Self-eval (numeric first).** `verify_cut.py edl.json cut.mp4` (longform: `--min-silence 1.2`). Clean → done. Flags → `timeline_view` ONLY the flagged junctions, fix, re-render. Cap 3 loops, then surface remaining flags to the user.
+7b. **Quality-assurance pass (video-use, always on).** Before showing ANY render the user will actually publish or approve — `cut.mp4` at the phase gate and `final.mp4` at delivery — run the `video-use` skill's quality checks (vendor/video-use, its Self-eval section): `ffmpeg -i out.mp4 -af ebur128=peak=true -f null -` for integrated loudness/true-peak plus per-section RMS (an end card or music bed 15dB under dialogue is a bug), and spawn one **critic sub-agent** with the rendered file + EDL briefed to roast, not praise — a verdict, ranked problems with timecodes/evidence, the top 5 fixes. This is not opt-in: it runs on every edit session, on top of (never instead of) `verify_cut.py` and Hard Rule 9b. Fix → re-render → re-eval, same 3-loop cap as step 7.
 8. **Show `cut.mp4` and wait for approval.** The phase gate.
 9. **Open the Estilo tab** — `"awaitingStyle": true` in `state.json`, and let the
    user pick the editing style, the caption style and the edit elements in the UI
