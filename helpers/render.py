@@ -271,8 +271,11 @@ def extract_segment(
     `-ss` before `-i` for fast accurate seeking. Scale to 1080p from 4K.
     Portrait sources (height > width) are scaled by height to preserve orientation.
 
-    Quality ladder:
-      - final (default): 1080p libx264 fast CRF 20
+    Quality ladder — final is the delivered file, so it is tuned for quality,
+    never speed: compression must never be the thing that visibly softens the
+    picture.
+      - final (default): 1080p libx264 slow CRF 16 (visually lossless — this
+        is what ships to the user)
       - preview:         1080p libx264 medium CRF 22 (evaluable for QC)
       - draft:           720p libx264 ultrafast CRF 28 (cut-point check only)
       - keep_resolution: source resolution + source fps (LONGFORM / 16:9 YouTube).
@@ -330,7 +333,8 @@ def extract_segment(
     elif preview:
         preset, crf = "medium", "22"
     else:
-        preset, crf = "fast", "20"
+        # delivered quality — see the "Quality ladder" note above
+        preset, crf = "slow", "16"
 
     cmd = [
         "ffmpeg", "-y",
@@ -1040,7 +1044,9 @@ def build_final_composite(
         "-filter_complex", filter_complex,
         "-map", out_label,
         "-map", "0:a",
-        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        # delivered quality — matches the "final" tier of the extraction ladder
+        # above, never traded for encode speed
+        "-c:v", "libx264", "-preset", "slow", "-crf", "16",
         "-pix_fmt", "yuv420p",
         # keep the Rec.709 tags the segments carry — this pass re-encodes video
         "-colorspace", "bt709", "-color_primaries", "bt709",
