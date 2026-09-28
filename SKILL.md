@@ -27,7 +27,7 @@ description: Aclive Editor — edit any video by conversation, in phases. Two tr
 7. **Color grade per-segment during extraction**, never post-concat.
 8. **Strategy confirmation before execution.**
 9. **All session outputs in `<videos_dir>/edit/`** — never inside the repo.
-10. **PHASE 2 is Remotion-only** — no ffmpeg/PIL burned text or overlays.
+10. **PHASE 2 is Remotion-only** — no ffmpeg/PIL burned text or overlays. Exception: when the user opted into **Motion (Hyperframes)** on the style gate, the motion-graphics segments described below are built with the `hyperframes` skill instead — everything else (cut, captions, headline) still comes from the Remotion template.
 11. **PHASE 2 is data-driven.** Scaffold by copying the track template; describe the video in `public/edit-data.json`. **Never read or edit the template TSX** (`src/Main.tsx` etc.) — the only editable code file is `src/CustomGraphics.tsx`, only for bespoke graphics.
     *This governs an EDIT SESSION.* Extending the skill itself — a new caption
     style, a new track template, a new control on the Estilo tab — necessarily
@@ -209,6 +209,36 @@ and the UI opens its own tab, sitting between FASE 1 and FASE 2:
   `zoomAuto` (automação de zoom in), `zoomCuts` (zoom in/out nos cortes),
   `flashCut` (flash na transição), `musicAI` (trilha sonora com IA), plus a
   free-text observation field.
+- **Motion** — a single opt-in switch, **off by default**: "Motion com
+  Hyperframes". It ships as the boolean `motion` in `preview_style.json`
+  (`true` only when the user turned it on). Whether to offer it at all is
+  content-driven — propose it when the material calls for a designed motion
+  beat (a kinetic stat, a logo sting, a stylized lower-third) beyond what the
+  built-in `CustomGraphics.tsx` motions (counters, `wordPops`, `typewriters`,
+  `pills`, `bars`) already cover.
+
+### Motion (Hyperframes)
+
+The `hyperframes` skill (vendor/hyperframes, a git submodule — `git submodule
+update --init vendor/hyperframes` if the checkout is empty) is an HTML → MP4
+renderer built for agentic motion graphics: kinetic type, stat/chart hits,
+logo stings, lower-thirds — the same shapes the domain skill router
+(`/hyperframes`) maps to `/motion-graphics`. When `preview_style.json` (or the
+persisted `state.json.style`) has `motion: true`:
+
+1. Read `/hyperframes` first (the router) to confirm the brief and land on
+   `/motion-graphics` or the closest matching creation workflow.
+2. Build the motion clip(s) as their own short HyperFrames composition(s),
+   sourcing footage/stills from the same `<edit>/` assets already gathered for
+   Phase 2 (grade, B-roll, brand images) — never re-derive them.
+3. Render each to MP4 (or a transparent overlay where the look calls for it)
+   into `<edit>/remotion/public/` alongside the other Phase-2 media, and
+   composite it into the cut the same way an inserted clip/overlay is placed
+   today (`edit-data.json`, timed off the transcript like every other motion
+   element in this skill) — HyperFrames renders the motion piece, Remotion
+   still owns the final composite and the phase gate.
+4. When `motion` is `false` or absent, skip this entirely — Phase 2 stays
+   the plain Remotion template, per Hard Rule 10.
 
 Saving writes `<edit>/preview_style.json` (its OWN file — a style pick and a
 timeline correction are different screens at different moments, and one shared
